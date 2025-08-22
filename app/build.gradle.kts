@@ -6,12 +6,12 @@ plugins {
 
 android {
     namespace = "com.potatodev.calculatorapp"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.potatodev.calculatorapp"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
