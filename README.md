@@ -22,6 +22,3 @@ A beginner-friendly calculator built using **Jetpack Compose** and **Kotlin**, d
 - **Android Studio (Giraffe or newer)**
 
 ---
-
-## 🧩 Project Structure
-
