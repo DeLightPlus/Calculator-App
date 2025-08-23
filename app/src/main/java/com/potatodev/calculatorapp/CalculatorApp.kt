@@ -3,11 +3,9 @@ package com.potatodev.calculatorapp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,8 +16,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+import java.math.RoundingMode
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
+import java.util.Locale
 
-// Buttons
 val buttons = listOf(
     "AC", "C", "%", "/",
     "7", "8", "9", "*",
@@ -28,42 +29,42 @@ val buttons = listOf(
     "+/-", "0", ".", "=",
 )
 
-
 @Composable
 fun CalculatorApp() {
     var display by remember { mutableStateOf("0") }
+    var previousExpression by remember { mutableStateOf("") }
     var operand1 by remember { mutableStateOf("") }
     var operand2 by remember { mutableStateOf("") }
     var operator by remember { mutableStateOf<String?>(null) }
+    var resultDisplayed by remember { mutableStateOf(false) }
 
     fun clear() {
         display = "0"
+        previousExpression = ""
         operand1 = ""
         operand2 = ""
         operator = null
+        resultDisplayed = false
     }
 
-    fun calculate() {
+    fun calculate(): String? {
         val num1 = operand1.toDoubleOrNull()
         val num2 = operand2.toDoubleOrNull()
-        if (num1 != null && num2 != null && operator != null) {
-            val result = when (operator) {
-                "+" -> num1 + num2
-                "-" -> num1 - num2
-                "*" -> num1 * num2
-                "/" -> if (num2 != 0.0) num1 / num2 else null
+        return if (num1 != null && num2 != null && operator != null) {
+            when (operator) {
+                "+" -> (num1 + num2).toString()
+                "-" -> (num1 - num2).toString()
+                "*" -> (num1 * num2).toString()
+                "/" -> if (num2 != 0.0) (num1 / num2).toString() else "Error"
                 else -> null
             }
-            display = result?.toString() ?: "Error"
-            operand1 = result?.toString() ?: ""
-            operand2 = ""
-            operator = null
-        }
+        } else null
     }
 
     fun onButtonClick(label: String) {
         when (label) {
             "AC" -> clear()
+
             "C", "->" -> {
                 if (operator == null) {
                     operand1 = operand1.dropLast(1)
@@ -73,18 +74,52 @@ fun CalculatorApp() {
                     display = operand2.ifEmpty { "0" }
                 }
             }
-            "=" -> if (operand1.isNotEmpty() && operand2.isNotEmpty()) calculate()
-            "+", "-", "*", "/" -> if (operand1.isNotEmpty()) operator = label
+
+            "=" -> {
+                val result = calculate()
+                if (result != null) {
+                    val cleaned = cleanResult(result)
+                    previousExpression = "$operand1 $operator $operand2 ="
+                    display = cleaned
+                    operand1 = cleaned
+                    operand2 = ""
+                    operator = null
+                    resultDisplayed = true
+                }
+            }
+
+            "+", "-", "*", "/" -> {
+                if (resultDisplayed) {
+                    // Continue using the displayed result as operand1
+                    resultDisplayed = false
+                } else if (operand1.isNotEmpty() && operator != null && operand2.isNotEmpty()) {
+                    val result = calculate()
+                    if (result != null) {
+                        val cleaned = cleanResult(result)
+                        operand1 = cleaned
+                        operand2 = ""
+                        display = ""
+                        previousExpression = "$cleaned $label"
+                    }
+                }
+                operator = label
+                previousExpression = "$operand1 $operator"
+            }
+
             "+/-" -> {
                 if (operator == null && operand1.isNotEmpty()) {
                     operand1 = if (operand1.startsWith("-")) operand1.drop(1) else "-$operand1"
                     display = operand1
-                } else if (operator != null && operand2.isNotEmpty()) {
+                } else if (operand2.isNotEmpty()) {
                     operand2 = if (operand2.startsWith("-")) operand2.drop(1) else "-$operand2"
                     display = operand2
                 }
             }
+
             "." -> {
+                if (resultDisplayed) {
+                    clear()
+                }
                 if (operator == null && !operand1.contains(".")) {
                     operand1 += "."
                     display = operand1
@@ -92,29 +127,42 @@ fun CalculatorApp() {
                     operand2 += "."
                     display = operand2
                 }
+                resultDisplayed = false
             }
+
             "%" -> {
                 if (operator == null && operand1.isNotEmpty()) {
                     val result = operand1.toDoubleOrNull()?.div(100)
-                    if (result != null) {
-                        operand1 = result.toString()
+                    result?.let {
+                        operand1 = cleanResult(it.toString())
                         display = operand1
                     }
                 } else if (operand2.isNotEmpty()) {
                     val result = operand2.toDoubleOrNull()?.div(100)
-                    if (result != null) {
-                        operand2 = result.toString()
+                    result?.let {
+                        operand2 = cleanResult(it.toString())
                         display = operand2
                     }
                 }
             }
-            else -> {
-                if (operator == null) {
-                    operand1 += label
+
+            else -> { // Digit or input
+                if (resultDisplayed) {
+                    // Start new calculation
+                    operand1 = label
+                    operand2 = ""
+                    operator = null
+                    previousExpression = ""
                     display = operand1
+                    resultDisplayed = false
                 } else {
-                    operand2 += label
-                    display = operand2
+                    if (operator == null) {
+                        operand1 += label
+                        display = operand1
+                    } else {
+                        operand2 += label
+                        display = operand2
+                    }
                 }
             }
         }
@@ -125,24 +173,32 @@ fun CalculatorApp() {
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        // Display
+        Text(
+            text = previousExpression,
+            fontSize = 28.sp,
+            color = Color.Gray,
+            textAlign = TextAlign.End,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 28.dp)
+        )
+
         Text(
             text = display,
-            fontSize = 48.sp,
+            fontSize = 60.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.End,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 24.dp)
+                .padding(vertical = 12.dp)
         )
 
-        Spacer(modifier = Modifier.weight(1f)) // Push the buttons down
+        Spacer(modifier = Modifier.weight(1f))
 
-        // Buttons Grid in fixed-height Box
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 360.dp) // Optional: adjust this to your desired height
+                .heightIn(min = 360.dp)
         ) {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(4),
@@ -157,7 +213,6 @@ fun CalculatorApp() {
             }
         }
     }
-
 }
 
 @Composable
@@ -166,7 +221,7 @@ fun CalculatorButton(label: String, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(1f)
-            .background(color = getColor(label))
+            .background(getColor(label))
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
@@ -181,8 +236,21 @@ fun CalculatorButton(label: String, onClick: () -> Unit) {
 
 fun getColor(label: String): Color {
     return when (label) {
-        "AC", "C" -> Color(0xFFE53935) // Red
-        "+", "-", "*", "/", "=", "%" -> Color(0xFFF57C00) // Orange
-        else -> Color(0xFF009688) // Teal
+        "AC", "C" -> Color(0xFFE53935)
+        "+", "-", "*", "/", "=", "%" -> Color(0xFFF57C00)
+        else -> Color(0xFF009688)
     }
+}
+
+fun cleanResult(result: String): String {
+    val number = result.toDoubleOrNull() ?: return result
+
+    val symbols = DecimalFormatSymbols(Locale.US).apply {
+        decimalSeparator = '.'
+    }
+
+    val df = DecimalFormat("#.######", symbols)
+    df.roundingMode = RoundingMode.HALF_UP
+
+    return df.format(number)
 }
