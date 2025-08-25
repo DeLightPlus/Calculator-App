@@ -1,12 +1,18 @@
 package com.potatodev.calculatorapp
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Divider
+
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -170,28 +176,44 @@ fun CalculatorApp() {
 
     Column(
         modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
+            .fillMaxWidth()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.End
     ) {
-        Text(
-            text = previousExpression,
-            fontSize = 28.sp,
-            color = Color.Gray,
-            textAlign = TextAlign.End,
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 28.dp)
-        )
+                .padding(16.dp)
+                .border(1.dp, Color.LightGray, RoundedCornerShape(12.dp))
+                .padding(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.End
+            ) {
+                Text(
+                    text = previousExpression,
+                    fontSize = 22.sp,
+                    color = Color.Gray
+                )
 
-        Text(
-            text = display,
-            fontSize = 60.sp,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.End,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 12.dp)
-        )
+                Divider(
+                    color = Color.LightGray,
+                    thickness = 1.dp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp)
+                )
+
+                Text(
+                    text = display,
+                    fontSize = 52.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black
+                )
+            }
+        }
+
 
         Spacer(modifier = Modifier.weight(1f))
 
@@ -199,6 +221,7 @@ fun CalculatorApp() {
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 360.dp)
+                .padding(8.dp, 16.dp)
         ) {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(4),
@@ -217,20 +240,26 @@ fun CalculatorApp() {
 
 @Composable
 fun CalculatorButton(label: String, onClick: () -> Unit) {
-    Box(
+    Surface (
         modifier = Modifier
-            .fillMaxWidth()
             .aspectRatio(1f)
-            .background(getColor(label))
+            .padding(4.dp)
             .clickable { onClick() },
-        contentAlignment = Alignment.Center
+        shape = RoundedCornerShape(16.dp),
+        color = getButtonColor(label),
+        shadowElevation = 4.dp
     ) {
-        Text(
-            text = label,
-            fontSize = 24.sp,
-            color = Color.White,
-            fontWeight = FontWeight.Bold
-        )
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Text(
+                text = label,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Medium,
+                color = getTextColor(label)
+            )
+        }
     }
 }
 
@@ -239,6 +268,21 @@ fun getColor(label: String): Color {
         "AC", "C" -> Color(0xFFE53935)
         "+", "-", "*", "/", "=", "%" -> Color(0xFFF57C00)
         else -> Color(0xFF009688)
+    }
+}
+
+fun getButtonColor(label: String): Color {
+    return when (label) {
+        "AC", "C" -> Color(0xFFE57373) // red-ish
+        "+", "-", "*", "/", "=", "%" -> Color(0xFF4CAF50) // green accent
+        else -> Color(0xFFEEEEEE) // light gray for numbers
+    }
+}
+
+fun getTextColor(label: String): Color {
+    return when (label) {
+        "AC", "C", "+", "-", "*", "/", "=", "%" -> Color.White
+        else -> Color.Black
     }
 }
 
