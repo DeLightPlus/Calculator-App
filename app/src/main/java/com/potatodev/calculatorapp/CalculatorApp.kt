@@ -30,20 +30,15 @@ import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.Locale
 
-val buttons = listOf(
-    "AC", "C", "%", "/",
+val memBtnList = listOf( "MC", "MR", "M+", "M-", "MS", "M^")
+val buttonList = listOf(
+    "C", "CE", "", "⌫",
+    "1/x", "x²", "√", "Ans",
+    "(", ")", "%", "/",
     "7", "8", "9", "*",
     "4", "5", "6", "-",
     "1", "2", "3", "+",
-    "+/-", "0", ".", "=",
-)
-
-val buttonList = listOf(
-    "C", "(", ")" , "/",
-    "7", "8" , "9", "*",
-    "4", "5" , "6", "+",
-    "1", "2" , "3", "-",
-    "AC", "0" , ".", "="
+    "+/-", "0", ".", "="
 )
 
 @Composable
@@ -57,64 +52,99 @@ fun CalculatorApp(
 
     Box(modifier = modifier){
         Column(
-            modifier = modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.End
-        ){
-            Text(
-                text = equationText.value?:"",
-                style = TextStyle(
-                    fontSize = 30.sp,
-                    textAlign= TextAlign.End
-                ),
-                maxLines = 5,
-                overflow = TextOverflow.Ellipsis
-            )
+            modifier = modifier
+                .fillMaxSize()
+                .padding(8.dp), // optional padding
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.End
+            ) {
+                Text(
+                    text = equationText.value ?: "",
+                    style = TextStyle(
+                        fontSize = 30.sp,
+                        textAlign = TextAlign.End
+                    ),
+                    maxLines = 5,
+                    overflow = TextOverflow.Ellipsis
+                )
 
-            Divider(
-                color = Color.LightGray,
-                thickness = 1.dp,
+                Divider(
+                    color = Color.LightGray,
+                    thickness = 1.dp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp)
+                )
+
+                Text(
+                    text = resultText.value ?: "0",
+                    style = TextStyle(
+                        fontSize = 60.sp,
+                        textAlign = TextAlign.End
+                    ),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+//            Row(
+//                modifier = Modifier
+//                    .fillMaxWidth()
+//                    .padding(horizontal = 8.dp, vertical = 4.dp),
+//                horizontalArrangement = Arrangement.SpaceBetween
+//            ) {
+//                listOf("🕒", "📏", "🔢", "🛠").forEach { label ->
+//                    Text(
+//                        text = label,
+//                        fontSize = 14.sp,
+//                        modifier = Modifier
+//                            .clickable { /* TODO: implement later */ }
+//                    )
+//                }
+//            }
+
+
+            // Buttons Section (Anchored at Bottom)
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 6.dp)
-            )
-            Spacer(modifier = Modifier.weight(1f))
-
-            Text(
-                text = resultText.value?:"0",
-                style = TextStyle(
-                    fontSize = 60.sp,
-                    textAlign= TextAlign.End
-                ),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            LazyVerticalGrid(columns = GridCells.Fixed(4),
+                    .padding(0.dp, 8.dp)
             ) {
-                items(buttonList){
-                    CalculatorButton(btn = it, onClick = {
-                        viewModel.onButtonClick(it)
-                    })
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(4),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.wrapContentHeight() // ✅ This makes height dynamic
+                ) {
+                    items(buttonList) {
+                        CalculatorButton(btn = it, onClick = {
+                            viewModel.onButtonClick(it)
+                        })
+                    }
                 }
             }
 
         }
+
     }
 
 }
 
 @Composable
 fun CalculatorButton(btn: String, onClick: () -> Unit) {
-    Surface (
+    Surface(
         modifier = Modifier
-            .aspectRatio(1f)
+            .height(60.dp) // or 64.dp, 72.dp — tweak to your preference
+            .fillMaxWidth()
             .padding(4.dp)
             .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
         color = getButtonColor(btn),
-        shadowElevation = 4.dp
+        shadowElevation = 1.dp
     ) {
         Box(
             contentAlignment = Alignment.Center,
@@ -122,7 +152,7 @@ fun CalculatorButton(btn: String, onClick: () -> Unit) {
         ) {
             Text(
                 text = btn,
-                fontSize = 24.sp,
+                fontSize = 20.sp,
                 fontWeight = FontWeight.Medium,
                 color = getTextColor(btn)
             )
@@ -140,18 +170,20 @@ fun getColor(label: String): Color {
 
 fun getButtonColor(label: String): Color {
     return when (label) {
-        "AC", "C" -> Color(0xFFE57373) // red-ish
-        "+", "-", "*", "/", "=", "%" -> Color(0xFF4CAF50) // green accent
-        else -> Color(0xFFEEEEEE) // light gray for numbers
+        in listOf("=", "/", "*", "-", "+") -> Color(0xFF2196F3) // blue
+        in listOf("MC", "MR", "M+", "M-", "MS", "M^") -> Color(0xFFBDBDBD) // gray
+        "AC", "C", "CE", "⌫" -> Color(0xFFE53935) // red
+        else -> Color(0xFFF5F5F5)
     }
 }
 
 fun getTextColor(label: String): Color {
     return when (label) {
-        "AC", "C", "+", "-", "*", "/", "=", "%" -> Color.White
+        "=", "/", "*", "-", "+", "AC", "C", "CE", "⌫" -> Color.White
         else -> Color.Black
     }
 }
+
 
 fun cleanResult(result: String): String {
     val number = result.toDoubleOrNull() ?: return result
