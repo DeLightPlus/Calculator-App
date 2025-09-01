@@ -6,6 +6,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import org.mozilla.javascript.Context
 import org.mozilla.javascript.Scriptable
+import kotlin.math.sqrt
 
 class CalculatorViewModel : ViewModel() {
 
@@ -22,8 +23,8 @@ class CalculatorViewModel : ViewModel() {
     fun onButtonClick(btn: String) {
         Log.i("Clicked", btn)
 
-        val currentInput = _resultText.value ?: "0"
-        val equation = _equationText.value ?: ""
+        var currentInput = _resultText.value ?: "0"
+        var equation = _equationText.value ?: ""
 
         when (btn) {
             // === MEMORY FUNCTIONS ===
@@ -38,18 +39,14 @@ class CalculatorViewModel : ViewModel() {
                 }
             }
 
-            // === CLEAR ALL ===
             "C" -> {
                 _equationText.value = ""
                 _resultText.value = "0"
+                lastEvaluated = false
             }
 
-            // === CLEAR CURRENT INPUT ONLY ===
-            "CE" -> {
-                _resultText.value = "0"
-            }
+            "CE" -> _resultText.value = "0"
 
-            // === DELETE LAST DIGIT ===
             "⌫" -> {
                 if (lastEvaluated) {
                     _equationText.value = ""
@@ -59,25 +56,30 @@ class CalculatorViewModel : ViewModel() {
                 }
                 _resultText.value = if (currentInput.length > 1) {
                     currentInput.dropLast(1)
-                } else {
-                    "0"
-                }
+                } else "0"
             }
 
-            // === ANSWER ===
             "Ans" -> {
                 if (lastEvaluated) _equationText.value = ""
                 _resultText.value = lastAnswer
                 lastEvaluated = false
             }
 
-            // === EQUALS ===
             "=" -> {
                 try {
-                    val fullEquation = equation + currentInput
-                    val result = calculateResult(fullEquation)
+                    // Append current input if it's not "0" and not already ending with ")"
+                    if (currentInput != "0" && !equation.endsWith(")")) {
+                        equation += currentInput
+                    }
+
+                    // Balance parentheses
+                    val open = equation.count { it == '(' }
+                    val close = equation.count { it == ')' }
+                    repeat(open - close) { equation += ")" }
+
+                    val result = calculateResult(equation)
                     _resultText.value = result
-                    _equationText.value = fullEquation // <-- Show full expression in equation
+                    _equationText.value = equation
                     lastAnswer = result
                     lastEvaluated = true
                 } catch (e: Exception) {
@@ -86,65 +88,108 @@ class CalculatorViewModel : ViewModel() {
                 }
             }
 
-
-            // === OPERATOR ===
             "+", "-", "*", "/", "%" -> {
                 if (lastEvaluated) {
-                    _equationText.value = lastAnswer + btn
+                    equation = lastAnswer
                     lastEvaluated = false
-                } else {
-                    _equationText.value = equation + currentInput + btn
                 }
+
+                // Append current input if it's not "0" and not already ending with ")"
+                if (currentInput != "0" && !equation.endsWith(")")) {
+                    equation += currentInput
+                }
+
+                // Replace last operator if the equation ends with an operator
+                while (equation.isNotEmpty() && equation.last() in "+-*/%") {
+                    equation = equation.dropLast(1)
+                }
+
+                equation += btn
+                _equationText.value = equation
                 _resultText.value = "0"
             }
 
-            // === PARENTHESES ===
-            "(", ")" -> {
+            "(" -> {
                 if (lastEvaluated) {
-                    _equationText.value = ""
+                    equation = ""
                     _resultText.value = "0"
                     lastEvaluated = false
                 }
-                _equationText.value = equation + btn
+
+                // First, flush current input if it's not "0"
+                if (currentInput != "0") {
+                    equation += currentInput
+                    _resultText.value = "0"
+                }
+
+                // Auto-insert '*' before '(' if needed
+                val last = equation.lastOrNull()
+                if (last != null && (last.isDigit() || last == ')')) {
+                    equation += "*("
+                } else {
+                    equation += "("
+                }
+
+                _equationText.value = equation
             }
 
-            // === SPECIAL FUNCTIONS ===
+            ")" -> {
+                val open = equation.count { it == '(' }
+                val close = equation.count { it == ')' }
+
+                if (open > close) {
+                    // Append current input if it's not "0" and equation doesn't end with ")"
+                    if (currentInput != "0" && !equation.endsWith(")")) {
+                        equation += currentInput
+                    }
+
+                    equation += ")"
+                    _equationText.value = equation
+
+                    // Only try to evaluate if we have a complete balanced expression
+                    try {
+                        val testOpen = equation.count { it == '(' }
+                        val testClose = equation.count { it == ')' }
+
+                        if (testOpen == testClose) {
+                            val result = calculateResult(equation)
+                            _resultText.value = result
+                        } else {
+                            _resultText.value = "0"
+                        }
+                    } catch (e: Exception) {
+                        _resultText.value = "0" // Don't show error for incomplete expressions
+                    }
+
+                    lastEvaluated = false
+                }
+            }
+
             "x²" -> {
-                val num = currentInput.toDoubleOrNull()
-                num?.let {
+                currentInput.toDoubleOrNull()?.let {
                     val squared = it * it
                     _resultText.value = cleanResult(squared.toString())
                 }
             }
 
             "√" -> {
-                val num = currentInput.toDoubleOrNull()
-                num?.let {
-                    val root = kotlin.math.sqrt(it)
-                    _resultText.value = cleanResult(root.toString())
+                currentInput.toDoubleOrNull()?.let {
+                    _resultText.value = cleanResult(sqrt(it).toString())
                 }
             }
 
             "1/x" -> {
-                val num = currentInput.toDoubleOrNull()
-                num?.let {
-                    if (it != 0.0) {
-                        _resultText.value = cleanResult((1 / it).toString())
-                    } else {
-                        _resultText.value = "∞"
-                    }
+                currentInput.toDoubleOrNull()?.let {
+                    _resultText.value = if (it != 0.0)
+                        cleanResult((1 / it).toString()) else "∞"
                 }
             }
 
             "+/-" -> {
-                _resultText.value = if (currentInput.startsWith("-")) {
-                    currentInput.drop(1)
-                } else {
-                    "-$currentInput"
-                }
+                _resultText.value = if (currentInput.startsWith("-"))
+                    currentInput.drop(1) else "-$currentInput"
             }
 
-            // === DECIMAL OR DIGIT ===
             "." -> {
                 if (!currentInput.contains(".")) {
                     _resultText.value = currentInput + "."
@@ -157,37 +202,36 @@ class CalculatorViewModel : ViewModel() {
                     _resultText.value = btn
                     lastEvaluated = false
                 } else {
-                    _resultText.value = if (currentInput == "0") btn else currentInput + btn
+                    // Auto-insert '*' if equation ends with ')'
+                    if (equation.endsWith(")")) {
+                        equation += "*"
+                        _equationText.value = equation
+                        _resultText.value = btn
+                    } else {
+                        _resultText.value = if (currentInput == "0") btn else currentInput + btn
+                    }
                 }
             }
 
-            // === FALLBACK ===
             else -> {
                 Log.w("Unhandled Button", btn)
             }
         }
     }
 
-    fun calculateResult(equation: String): String {
-        val context: Context = Context.enter()
+    private fun calculateResult(equation: String): String {
+        val context = Context.enter()
         context.optimizationLevel = -1
-        val scriptable: Scriptable = context.initStandardObjects()
-        var finalResult = context.evaluateString(scriptable, equation, "Javascript", 1, null).toString()
+        val scope: Scriptable = context.initStandardObjects()
+        val result = context.evaluateString(scope, equation, "JavaScript", 1, null).toString()
         Context.exit()
-
-        return cleanResult(finalResult)
+        return cleanResult(result)
     }
 
-    private fun cleanResult(result: String): String {
-        return try {
-            val double = result.toDouble()
-            if (double % 1 == 0.0) {
-                double.toInt().toString()
-            } else {
-                "%.6f".format(double).trimEnd('0').trimEnd('.')
-            }
-        } catch (e: NumberFormatException) {
-            result
-        }
+    private fun cleanResult(raw: String): String {
+        return raw.toDoubleOrNull()?.let {
+            if (it % 1 == 0.0) it.toInt().toString()
+            else "%.6f".format(it).trimEnd('0').trimEnd('.')
+        } ?: raw
     }
 }
